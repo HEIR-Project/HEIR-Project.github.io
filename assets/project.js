@@ -4,12 +4,12 @@ window.PROJECT = {
   subtitle: 'Project title to be added.',
   abstract: 'The project abstract will be added here.',
   dataset: {
-    description: 'Dataset details, documentation, and download links will be added here.',
-    url: ''
+    description: 'Access the HEIR dataset on Hugging Face.',
+    url: 'https://huggingface.co/datasets/Anonymous-HEIR123/HEIR-Dataset'
   },
   code: {
-    description: 'Implementation, setup instructions, and evaluation scripts will be added here.',
-    url: ''
+    description: 'Access the HEIR code repository on GitHub.',
+    url: 'https://github.com/HEIR-Project/HEIR-Code'
   },
   // Optional silent looping background, e.g. 'assets/videos/teaser.mp4'.
   heroVideo: '',
