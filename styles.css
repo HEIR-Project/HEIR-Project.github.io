@@ -7,3 +7,5 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 
 button:disabled{cursor:default}.button:disabled{color:var(--green);background:var(--green-light)}.button.primary:disabled{color:#fff;background:var(--green)}.button:disabled:hover{transform:none;background:var(--green-light)}.button.primary:disabled:hover{background:var(--green)}.coming-soon{font-size:10px;font-weight:400;white-space:nowrap}.nav-paper:disabled{background:transparent;color:var(--muted)}.resource-pending{text-align:left;color:var(--muted);width:100%}
+
+.hero .stats{margin-bottom:32px}
