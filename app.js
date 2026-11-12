@@ -5,11 +5,561 @@ navigation:{kicker:'WHERE SHOULD THE ROBOT GO?',title:'Move through the househol
 manipulation:{kicker:'HOW SHOULD THE ROBOT INTERACT?',title:'Turn a subgoal into motion.',description:'A VLA or world-action model uses robot observations, state, and a manipulation subgoal to generate low-level arm and gripper control commands.',metrics:'Metrics: Joint MSE · End-effector position error · End-effector rotation error',label:'MANIPULATION EXECUTION · ILLUSTRATIVE',examples:[['Input','Subgoal · robot camera views · robot state'],['Output','Arm and gripper action sequence'],['Evaluation','First predicted action and 24-step action chunks']]}
 };
 const resultSets={
-intent:{title:'Human context resolves ambiguity.',caption:'Gemma-4-31B input ablations without interaction history. Scores are percentages.',headers:['Input condition','Slot F1 ↑','Location ↑','Plan EM ↑','RV F1 ↑','BERTScore ↑'],rows:[['Text only','60.38','19.42','33.24','N/A','92.96'],['Robot view','71.39','55.38','64.32','61.63','93.19'],['Human + robot','75.74','72.18','73.51','60.94','93.27'],['Human + robot + center prior','75.24','70.08','78.92','64.10','93.23'],['Human + robot + gaze','77.80','77.95','79.19','63.95','93.23']],chartLabel:'SLOT F1 (%) · HIGHER IS BETTER',chartCol:1,featured:[4],note:'Table 2. Measured gaze improves grounding beyond a center prior; the center-prior condition is slightly higher on entity–visibility F1.'},
-history:{title:'Earlier interactions carry meaning.',caption:'Gemma-4-31B with full human and robot context plus gaze. Scores are percentages.',headers:['History condition','Slot F1 ↑','Location ↑','Plan EM ↑','RV F1 ↑','BERTScore ↑'],rows:[['No history','77.80','77.95','79.19','63.95','93.23'],['Predicted history','78.62','80.05','81.62','63.67','93.32'],['Ground-truth history (upper bound)','82.19','82.41','84.05','64.73','93.57']],chartLabel:'LOCATION ACCURACY (%) · HIGHER IS BETTER',chartCol:2,featured:[1],note:'Table 3. Predicted history improves grounding and nominal-plan accuracy. Ground-truth history is an oracle reference, not a deployable input.'},
-planning:{title:'Intent improves subgoal quality.',caption:'All planners are fine-tuned on the HEIR training split. Scores are percentages.',headers:['Model / input','Accuracy ↑','Macro-F1 ↑','Next type ↑','Core ↑','Completion F1 ↑'],rows:[['Cosmos3-Nano · instruction','64.90','65.51','77.59','48.56','45.18'],['Cosmos3-Nano · + intent','65.62','66.19','82.18','64.37','52.24'],['Qwen3.5-4B · instruction','69.71','71.93','75.29','50.86','44.15'],['Qwen3.5-4B · + intent','69.23','71.40','73.56','59.48','46.84'],['Gemma-4-E4B-it · instruction','61.06','59.27','90.80','56.32','44.99'],['Gemma-4-E4B-it · + intent','62.02','60.14','93.10','65.80','50.24']],chartLabel:'CORE SUBGOAL CORRECTNESS (%) · HIGHER IS BETTER',chartCol:4,featured:[1,3,5],note:'Table 4. Core subgoal and completion scores improve for all three models; decision accuracy does not improve for every model. Next-subtask metrics are evaluated on ground-truth Switch cases.'},
-navigation:{title:'Adaptation matters for navigation.',caption:'Offline VLN action prediction with English subgoals. Scores are percentages.',headers:['Model / weights','Accuracy ↑','Macro-F1 ↑','STOP recall ↑','STOP F1 ↑'],rows:[['NaVid · original','48.74','45.38','53.49','30.95'],['NaVid · fine-tuned','86.59','86.15','80.72','60.05'],['StreamVLN · original','46.84','39.65','19.39','20.34'],['StreamVLN · fine-tuned','86.36','86.20','75.49','67.02'],['InternVLA-N1 · original','49.08','45.41','58.28','31.48'],['InternVLA-N1 · fine-tuned','90.69','91.00','84.53','76.98']],chartLabel:'OFFLINE ACTION ACCURACY (%) · HIGHER IS BETTER',chartCol:1,featured:[1,3,5],note:'Table 5. Original means the released checkpoint without project LoRA. Fine-tuned checkpoints are selected on validation. STOP metrics are annotation-bounded proxies; offline accuracy is not real-robot navigation success.'},
-manipulation:{title:'Compare actions, not just outcomes.',caption:'Fine-tuned VLA/WAM models with ground-truth subgoal instructions. Errors are lower-is-better.',headers:['Model','First MSE (rad²) ↓','First pos. (cm) ↓','First rot. (°) ↓','Chunk MSE (rad²) ↓','Chunk pos. (cm) ↓','Chunk rot. (°) ↓'],rows:[['DreamZero','0.002809','1.489','3.455','0.013215','2.604','5.244'],['π0-FAST','0.001644','0.808','1.093','0.009090','1.466','1.858'],['π0','0.000588','0.396','0.653','0.003688','0.937','1.499'],['π0.5','0.000468','0.373','0.652','0.003398','0.911','1.519'],['FastWAM','0.000374','0.369','0.673','0.002921','0.806','1.327'],['Lingbot-VLA2','0.000316','0.310','0.539','0.002633','0.725','1.194']],chartLabel:'24-STEP CHUNK POSITION ERROR (CM) · LOWER IS BETTER',chartCol:5,chartMax:3,featured:[5],note:'Table 6. Position and rotation columns are physical errors, not percentages. Evaluation uses ground-truth subgoals and recorded action targets; these scores do not measure end-to-end intent understanding.'}
+  "intent": {
+    "title": "Human context resolves ambiguity.",
+    "caption": "Gemma-4-31B input ablations without history. Scores are percentages.",
+    "headers": [
+      "Input condition",
+      "Slot F1 ↑",
+      "Location ↑",
+      "Plan EM ↑",
+      "RV F1 ↑"
+    ],
+    "rows": [
+      [
+        "Textual instruction only",
+        "59.52",
+        "20.47",
+        "30.27",
+        "N/A"
+      ],
+      [
+        "Robot view only",
+        "71.22",
+        "54.86",
+        "63.51",
+        "60.33"
+      ],
+      [
+        "Human + robot",
+        "74.85",
+        "71.13",
+        "72.43",
+        "57.71"
+      ],
+      [
+        "Human + robot + center prior",
+        "74.91",
+        "71.39",
+        "75.14",
+        "61.61"
+      ],
+      [
+        "Human + robot + gaze (full)",
+        "77.18",
+        "77.69",
+        "78.11",
+        "64.09"
+      ]
+    ],
+    "chartLabel": "SLOT F1 (%) · HIGHER IS BETTER",
+    "chartCol": 1,
+    "featured": [
+      4
+    ],
+    "note": "Table 2. Measured gaze yields the highest grounding, plan and visibility scores for Gemma-4-31B."
+  },
+  "history": {
+    "title": "Earlier interactions carry meaning.",
+    "caption": "Gemma-4-31B with full multimodal context. Scores are percentages.",
+    "headers": [
+      "History condition",
+      "Slot F1 ↑",
+      "Location ↑",
+      "Plan EM ↑",
+      "RV F1 ↑"
+    ],
+    "rows": [
+      [
+        "Ground-truth history (oracle)",
+        "81.25",
+        "80.31",
+        "82.70",
+        "64.88"
+      ],
+      [
+        "No history",
+        "76.69",
+        "77.17",
+        "76.22",
+        "63.13"
+      ],
+      [
+        "Predicted history",
+        "77.89",
+        "79.27",
+        "81.08",
+        "63.51"
+      ]
+    ],
+    "chartLabel": "LOCATION (%) · HIGHER IS BETTER",
+    "chartCol": 2,
+    "featured": [
+      2
+    ],
+    "note": "Table 3. The no-history row is a separate run from the full-input ablation. Ground-truth history is an oracle reference."
+  },
+  "planning": {
+    "title": "Fine-tuning improves subtask progression.",
+    "caption": "Temporal planning before and after fine-tuning. All planners receive annotated intent. Scores are percentages.",
+    "headers": [
+      "Model / setting",
+      "Accuracy ↑",
+      "Macro-F1 ↑",
+      "Next type ↑",
+      "Core ↑",
+      "Completion F1 ↑"
+    ],
+    "rows": [
+      [
+        "Cosmos3-Nano · pre-trained",
+        "33.07",
+        "21.03",
+        "0.00",
+        "0.00",
+        "0.00"
+      ],
+      [
+        "Cosmos3-Nano · fine-tuned",
+        "68.90",
+        "70.81",
+        "54.87",
+        "44.25",
+        "32.32"
+      ],
+      [
+        "Qwen3.5-4B · pre-trained",
+        "46.85",
+        "45.71",
+        "49.56",
+        "32.74",
+        "26.61"
+      ],
+      [
+        "Qwen3.5-4B · fine-tuned",
+        "83.46",
+        "84.33",
+        "75.22",
+        "61.06",
+        "36.85"
+      ],
+      [
+        "Gemma-4-E4B-it · pre-trained",
+        "38.58",
+        "33.48",
+        "23.01",
+        "19.47",
+        "11.30"
+      ],
+      [
+        "Gemma-4-E4B-it · fine-tuned",
+        "63.39",
+        "65.63",
+        "53.98",
+        "38.05",
+        "27.35"
+      ]
+    ],
+    "chartLabel": "CORE (%) · HIGHER IS BETTER",
+    "chartCol": 4,
+    "featured": [
+      1,
+      3,
+      5
+    ],
+    "note": "Table 4. Next Type, Core and Completion F1 cover all reference Switch decisions. Incorrect decisions or next types score zero. Core and Completion F1 use blinded binary review and one-to-one terminal-state fact matching."
+  },
+  "navigation": {
+    "title": "Adaptation matters for navigation.",
+    "caption": "Offline VLN action prediction with English subgoals. Scores are percentages.",
+    "headers": [
+      "Model / weights",
+      "Accuracy ↑",
+      "Macro-F1 ↑",
+      "STOP recall ↑",
+      "STOP F1 ↑"
+    ],
+    "rows": [
+      [
+        "NaVid · original",
+        "48.74",
+        "45.38",
+        "53.49",
+        "30.95"
+      ],
+      [
+        "NaVid · fine-tuned",
+        "86.59",
+        "86.15",
+        "80.72",
+        "60.05"
+      ],
+      [
+        "StreamVLN · original",
+        "46.84",
+        "39.65",
+        "19.39",
+        "20.34"
+      ],
+      [
+        "StreamVLN · fine-tuned",
+        "86.36",
+        "86.20",
+        "75.49",
+        "67.02"
+      ],
+      [
+        "InternVLA-N1 · original",
+        "49.08",
+        "45.41",
+        "58.28",
+        "31.48"
+      ],
+      [
+        "InternVLA-N1 · fine-tuned",
+        "90.69",
+        "91.00",
+        "84.53",
+        "76.98"
+      ]
+    ],
+    "chartLabel": "ACCURACY (%) · HIGHER IS BETTER",
+    "chartCol": 1,
+    "featured": [
+      1,
+      3,
+      5
+    ],
+    "note": "Table 5. Fine-tuned checkpoints are selected on validation. STOP scores are annotation-bounded proxies; offline accuracy differs from real-robot success."
+  },
+  "manipulation": {
+    "title": "Compare actions, not just outcomes.",
+    "caption": "Fine-tuned VLA/WAM models with ground-truth subgoal instructions. Errors are lower-is-better.",
+    "headers": [
+      "Model",
+      "First MSE (rad²) ↓",
+      "First pos. (cm) ↓",
+      "First rot. (°) ↓",
+      "Chunk MSE (rad²) ↓",
+      "Chunk pos. (cm) ↓",
+      "Chunk rot. (°) ↓"
+    ],
+    "rows": [
+      [
+        "DreamZero",
+        "0.002809",
+        "1.489",
+        "3.455",
+        "0.013215",
+        "2.604",
+        "5.244"
+      ],
+      [
+        "π0-FAST",
+        "0.001644",
+        "0.808",
+        "1.093",
+        "0.009090",
+        "1.466",
+        "1.858"
+      ],
+      [
+        "π0",
+        "0.000588",
+        "0.396",
+        "0.653",
+        "0.003688",
+        "0.937",
+        "1.499"
+      ],
+      [
+        "π0.5",
+        "0.000468",
+        "0.373",
+        "0.652",
+        "0.003398",
+        "0.911",
+        "1.519"
+      ],
+      [
+        "FastWAM",
+        "0.000374",
+        "0.369",
+        "0.673",
+        "0.002921",
+        "0.806",
+        "1.327"
+      ],
+      [
+        "Lingbot-VLA2",
+        "0.000316",
+        "0.310",
+        "0.539",
+        "0.002633",
+        "0.725",
+        "1.194"
+      ]
+    ],
+    "chartLabel": "24-STEP CHUNK POSITION ERROR (CM) · LOWER IS BETTER",
+    "chartCol": 5,
+    "featured": [
+      5
+    ],
+    "note": "Table 6. First-output and 24-step action-chunk errors use recorded action targets. Position is in cm, rotation in degrees and joint MSE in rad².",
+    "chartMax": 3
+  },
+  "initial": {
+    "title": "Human-centric intent helps the first decision.",
+    "caption": "Qwen3.5-4B initial-subtask planning with different intent sources. Scores are percentages.",
+    "headers": [
+      "Intent source",
+      "Next type ↑",
+      "Core ↑",
+      "Completion F1 ↑"
+    ],
+    "rows": [
+      [
+        "Ground-truth intent (oracle)",
+        "89.00",
+        "65.00",
+        "42.79"
+      ],
+      [
+        "Predicted intent (full)",
+        "87.00",
+        "56.00",
+        "42.73"
+      ],
+      [
+        "Predicted intent (robot-only)",
+        "84.00",
+        "47.00",
+        "39.51"
+      ],
+      [
+        "No intent (instruction + robot view)",
+        "83.00",
+        "40.00",
+        "39.85"
+      ]
+    ],
+    "chartLabel": "CORE (%) · HIGHER IS BETTER",
+    "chartCol": 2,
+    "featured": [
+      1
+    ],
+    "note": "Appendix E.3. First decisions only, with no active subtask or completed-subtask history. Predicted intents are from Qwen3.8-27B. These scores are separate from the temporal planning evaluation."
+  },
+  "otherIntent": {
+    "title": "Input context across four model families.",
+    "caption": "Additional intent models: input ablations without history. Scores are percentages.",
+    "headers": [
+      "Model / input",
+      "Slot F1 ↑",
+      "Location ↑",
+      "Plan EM ↑",
+      "RV F1 ↑"
+    ],
+    "rows": [
+      [
+        "Qwen3.8-27B · Textual instruction only",
+        "60.18",
+        "22.05",
+        "29.19",
+        "N/A"
+      ],
+      [
+        "Qwen3.8-27B · Robot view only",
+        "71.83",
+        "54.33",
+        "54.05",
+        "61.23"
+      ],
+      [
+        "Qwen3.8-27B · Human + robot",
+        "74.24",
+        "62.47",
+        "64.86",
+        "60.68"
+      ],
+      [
+        "Qwen3.8-27B · Human + robot + center prior",
+        "75.21",
+        "66.93",
+        "68.11",
+        "62.72"
+      ],
+      [
+        "Qwen3.8-27B · Human + robot + gaze (full)",
+        "77.01",
+        "73.49",
+        "71.08",
+        "63.38"
+      ],
+      [
+        "Muse-Glimmer-30B · Textual instruction only",
+        "56.52",
+        "18.64",
+        "26.22",
+        "N/A"
+      ],
+      [
+        "Muse-Glimmer-30B · Robot view only",
+        "67.80",
+        "50.66",
+        "44.86",
+        "62.76"
+      ],
+      [
+        "Muse-Glimmer-30B · Human + robot",
+        "72.87",
+        "62.99",
+        "43.24",
+        "58.78"
+      ],
+      [
+        "Muse-Glimmer-30B · Human + robot + center prior",
+        "72.57",
+        "65.88",
+        "44.86",
+        "59.34"
+      ],
+      [
+        "Muse-Glimmer-30B · Human + robot + gaze (full)",
+        "74.86",
+        "75.07",
+        "43.78",
+        "60.29"
+      ],
+      [
+        "InternVL3.5-38B · Textual instruction only",
+        "54.28",
+        "30.45",
+        "32.16",
+        "N/A"
+      ],
+      [
+        "InternVL3.5-38B · Robot view only",
+        "61.34",
+        "43.04",
+        "25.68",
+        "43.58"
+      ],
+      [
+        "InternVL3.5-38B · Human + robot",
+        "67.34",
+        "56.17",
+        "29.73",
+        "41.95"
+      ],
+      [
+        "InternVL3.5-38B · Human + robot + center prior",
+        "66.00",
+        "56.96",
+        "27.03",
+        "41.39"
+      ],
+      [
+        "InternVL3.5-38B · Human + robot + gaze (full)",
+        "67.99",
+        "58.79",
+        "28.38",
+        "41.08"
+      ]
+    ],
+    "chartLabel": "SLOT F1 (%) · HIGHER IS BETTER",
+    "chartCol": 1,
+    "featured": [
+      4,
+      9,
+      14
+    ],
+    "note": "Appendix: additional intent models. Full context improves grounding, while plan and visibility trends vary by model."
+  },
+  "otherHistory": {
+    "title": "Interaction history across model families.",
+    "caption": "Additional intent models with full multimodal context. Scores are percentages.",
+    "headers": [
+      "Model / history",
+      "Slot F1 ↑",
+      "Location ↑",
+      "Plan EM ↑",
+      "RV F1 ↑"
+    ],
+    "rows": [
+      [
+        "Qwen3.8-27B · ground-truth history (oracle)",
+        "81.25",
+        "79.53",
+        "76.76",
+        "65.19"
+      ],
+      [
+        "Qwen3.8-27B · no history",
+        "76.85",
+        "73.23",
+        "68.92",
+        "63.25"
+      ],
+      [
+        "Qwen3.8-27B · predicted history",
+        "78.43",
+        "76.38",
+        "69.19",
+        "64.36"
+      ],
+      [
+        "Muse-Glimmer-30B · ground-truth history (oracle)",
+        "79.13",
+        "77.69",
+        "58.38",
+        "65.87"
+      ],
+      [
+        "Muse-Glimmer-30B · no history",
+        "74.97",
+        "74.54",
+        "48.38",
+        "60.81"
+      ],
+      [
+        "Muse-Glimmer-30B · predicted history",
+        "75.25",
+        "76.12",
+        "45.41",
+        "62.31"
+      ],
+      [
+        "InternVL3.5-38B · ground-truth history (oracle)",
+        "71.36",
+        "64.04",
+        "33.78",
+        "45.54"
+      ],
+      [
+        "InternVL3.5-38B · no history",
+        "66.99",
+        "57.74",
+        "29.46",
+        "40.75"
+      ],
+      [
+        "InternVL3.5-38B · predicted history",
+        "67.34",
+        "58.79",
+        "28.11",
+        "43.07"
+      ]
+    ],
+    "chartLabel": "SLOT F1 (%) · HIGHER IS BETTER",
+    "chartCol": 1,
+    "featured": [
+      2,
+      5,
+      8
+    ],
+    "note": "Appendix: additional history results. Ground-truth history is an oracle; no-history rows are separate runs from the ablation full-input rows."
+  }
 };
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node}
 function setTask(key){const data=tasks[key];document.querySelectorAll('[data-task]').forEach(tab=>{const active=tab.dataset.task===key;tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1});document.querySelector('#task-panel').setAttribute('aria-labelledby','task-tab-'+key);for(const field of ['kicker','title','description','metrics'])document.querySelector('#task-'+field).textContent=data[field];document.querySelector('#example-label').textContent=data.label;document.querySelector('#task-example-content').replaceChildren(...data.examples.map(([label,value])=>{const div=el('div');div.append(el('span',label),el('strong',value));return div}))}
